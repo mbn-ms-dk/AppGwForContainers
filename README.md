@@ -2,6 +2,8 @@
 
 This repository contains the documentation and samples for deploying the Application Gateway for Containers ALB controller. The Application Gateway for Containers ALB controller is a Kubernetes ingress controller that uses the Azure Application Gateway to expose services outside the Kubernetes cluster. The Application Gateway for Containers ALB controller is built on top of the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/).
 
+![Application Gateway for Containers ALB controller](./application-gateway-for-containers-kubernetes-conceptual.png)
+
 Documentation for the Application Gateway for Containers ALB controller can be found here:
 <https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/>
 
