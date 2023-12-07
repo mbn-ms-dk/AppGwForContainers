@@ -8,8 +8,8 @@ Documentation for the Application Gateway for Containers ALB controller can be f
 ## create a new AKS cluster with Azure CNI and workload identity enabled
 
 ```bash
-AKS_NAME='aksagfc'
-RESOURCE_GROUP='agfc'
+AKS_NAME='<name of aks cluster>'
+RESOURCE_GROUP='<name of resource group>'
 LOCATION='northeurope' # The list of available regions may grow as we roll out to more preview regions
 
 az group create --name $RESOURCE_GROUP --location $LOCATION
@@ -17,6 +17,8 @@ az aks create --resource-group $RESOURCE_GROUP --name $AKS_NAME --location $LOCA
 ```
 
 ## create workload identity and install the ALB Controller
+
+Create a user managed identity for ALB controller and federate the identity as Workload Identity to use in the AKS cluster.
 
 ### Create workload identity
 
@@ -56,17 +58,25 @@ helm install alb-controller oci://mcr.microsoft.com/application-lb/charts/alb-co
 
 #### Verify the ALB Controller installation
 
+Verify the ALB Controller pods are ready:
+
 ```bash
 kubectl get pods -n alb-system
 ```
 
 #### Verify gateway class
 
+Verify GatewayClass azure-application-lb is installed on your cluster:
+
 ```bash
 kubectl get gatewayclass azure-alb-external -o yaml
 ```
 
+You should see that the GatewayClass has a condition that reads Valid GatewayClass.
+
 ## Prepare your virtual network / subnet for Application Gateway for Containers
+
+If you don't have a subnet available with at least 250 available IP addresses and delegated to the Application Gateway for Containers resource, use the following steps to create a new subnet and enable subnet delegation. 
 
 ```bash
 CLUSTER_SUBNET_ID=$(az vmss list --resource-group $mcResourceGroup --query '[0].virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].ipConfigurations[0].subnet.id' -o tsv)
@@ -80,6 +90,8 @@ ALB_SUBNET_ID=$(az network vnet subnet show --name $ALB_SUBNET_NAME --resource-g
 
 ### Delegate permissions to managed identity
 
+ALB Controller needs the ability to provision new Application Gateway for Containers resources and to join the subnet intended for the Application Gateway for Containers association resource.
+
 ```bash
 # Delegate AppGw for Containers Configuration Manager role to AKS Managed Cluster RG
 az role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --scope $mcResourceGroupId --role "fbc52c3f-28ad-4303-a892-8a056630b8f1"
@@ -90,16 +102,20 @@ az role assignment create --assignee-object-id $principalId --assignee-principal
 
 ## Create ApplicationLoadBalancer Kubernetes resource
 
+Define the Kubernetes namespace for the ApplicationLoadBalancer resource.
+
 ```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: alb-test-infra
-EOF
+kubectl apply -f alb-namespace.yaml
 ```
 
-### create the Application Gateway for Containers resource and association
+create the Application Gateway for Containers resource and association
+
+```bash
+
+cat applicationloadbalancer.yaml | ALB_SUBNET_ID=$ALB_SUBNET_ID envsubst | kubectl apply -f -
+```
+
+or
 
 ```bash
 kubectl apply -f - <<EOF
@@ -116,11 +132,15 @@ EOF
 
 #### Validate creation of the Application Gateway for Containers resources
 
+Once the ApplicationLoadBalancer resource has been created, you can track deployment progress of the Application Gateway for Containers resources. The deployment transitions from InProgress to Programmed state when provisioning has completed. It can take 5-6 minutes for the Application Gateway for Containers resources to be created.
+
 ```bash
 kubectl get applicationloadbalancer alb-test -n alb-test-infra -o yaml -w
 ```
 
-## Scenarios
+## Scenarios / sample applications
+
+How-to guides to deploy a sample application, demonstrating some of Application Gateway for Container's load balancing concept:
 
 * Mutual TLS with Application Gateway for Containers: [backend-mtls](./backend-mtls/backend-mtls.md)
 * SSL offloading with Application Gateway for Containers : [ssl-offloading](./ssl-offloading/ssl-offloading.md)
